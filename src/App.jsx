@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   where,
   doc,
+  orderBy, // 👈 added
 } from "firebase/firestore";
 
 export default function App() {
@@ -46,17 +47,22 @@ export default function App() {
 
     setLoading(true);
 
-    const q = query(collection(db, "notes"), where("uid", "==", user.uid));
+    const q = query(
+      collection(db, "notes"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc") // 👈 ensures notes appear
+    );
 
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        console.log("Fetched notes:", data); // 👈 debug
         setNotes(data);
         setLoading(false);
       },
       (err) => {
-        console.log(err);
+        console.error("Error fetching notes:", err);
         setLoading(false);
       }
     );
@@ -76,7 +82,7 @@ export default function App() {
         uid: user.uid,
         title,
         content,
-        createdAt: serverTimestamp(), // 🔥 fixed typo: createAt → createdAt
+        createdAt: serverTimestamp(), // 🔥 timestamp for ordering
       });
       setForm({ title: "", content: "" });
     } catch (err) {
@@ -143,12 +149,16 @@ export default function App() {
         <h2>Your Notes</h2>
         {loading ? (
           <p>Loading...</p>
+        ) : notes.length === 0 ? (
+          <p>No notes yet. Add one above!</p>
         ) : (
           <ul>
             {notes.map((n) => (
               <li key={n.id}>
-                <div>{n.title}</div>
-                <button onClick={() => removeNote(n.id)}>Delete</button>
+                <div>
+                  <strong>{n.title}</strong>
+                  <button onClick={() => removeNote(n.id)}>Delete</button>
+                </div>
                 <p>{n.content}</p>
               </li>
             ))}
