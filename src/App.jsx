@@ -19,24 +19,27 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ title: "", content: "" });
 
+  // ✅ Track authentication state
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
 
+  // ✅ Sign in with Google
   const signIn = async () => {
-    console.log("hello");
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
   };
 
+  // ✅ Sign out
   const signOutNow = async () => {
     await signOut(auth);
   };
 
+  // ✅ Fetch notes when user is logged in
   useEffect(() => {
     if (!user) {
-      setUser([]);
+      setNotes([]); // clear notes when logged out
       setLoading(false);
       return;
     }
@@ -49,7 +52,6 @@ export default function App() {
       q,
       (snap) => {
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
         setNotes(data);
         setLoading(false);
       },
@@ -62,19 +64,19 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // ✅ Create new note
   const createNote = async (e) => {
     e.preventDefault();
     if (!user) return;
 
-    const title = form.title;
-    const content = form.content;
+    const { title, content } = form;
 
     try {
       await addDoc(collection(db, "notes"), {
         uid: user.uid,
         title,
         content,
-        createAt: serverTimestamp(),
+        createdAt: serverTimestamp(), // 🔥 fixed typo: createAt → createdAt
       });
       setForm({ title: "", content: "" });
     } catch (err) {
@@ -82,6 +84,7 @@ export default function App() {
     }
   };
 
+  // ✅ Delete note
   const removeNote = async (id) => {
     try {
       await deleteDoc(doc(db, "notes", id));
@@ -93,10 +96,12 @@ export default function App() {
   return (
     <div>
       <h1>Firebase Notes</h1>
+
+      {/* ✅ User Info / Auth */}
       {user ? (
         <div>
           <p>
-            Sign in as {user.displayName} || {user.email}
+            Signed in as {user.displayName} ({user.email})
           </p>
           <button onClick={signOutNow}>Sign out</button>
         </div>
@@ -104,6 +109,7 @@ export default function App() {
         <button onClick={signIn}>Sign In with Google</button>
       )}
 
+      {/* ✅ Note Form */}
       {user && (
         <section>
           <h2>Create a note!</h2>
@@ -116,7 +122,7 @@ export default function App() {
                   setForm((f) => ({ ...f, title: e.target.value }))
                 }
                 placeholder="Title"
-              ></input>
+              />
             </div>
             <div>
               <textarea
@@ -127,32 +133,28 @@ export default function App() {
                 placeholder="Write your note..."
               />
             </div>
-
             <button type="submit">Add note</button>
           </form>
         </section>
       )}
 
+      {/* ✅ Notes List */}
       <section>
         <h2>Your Notes</h2>
         {loading ? (
           <p>Loading...</p>
         ) : (
           <ul>
-            {notes.map((n) => {
-              return (
-                <li key={n.id}>
-                  <div>{n.title}</div>
-                  <button onClick={() => removeNote(n.id)}>Delete</button>
-                  <p>{n.content}</p>
-                </li>
-              );
-            })}
+            {notes.map((n) => (
+              <li key={n.id}>
+                <div>{n.title}</div>
+                <button onClick={() => removeNote(n.id)}>Delete</button>
+                <p>{n.content}</p>
+              </li>
+            ))}
           </ul>
         )}
       </section>
-
-      <footer></footer>
     </div>
   );
 }
